@@ -13,11 +13,11 @@ az account set --subscription "SUBSCRIPTION_ID"
 2- Project Folder Structure
 Create a Terraform project:
 aks-terraform/
-├── provider.tf
-├── variables.tf
-├── main.tf
-├── outputs.tf
-├── terraform.tfvars
+ provider.tf
+ variables.tf
+ main.tf
+ outputs.tf
+ terraform.tfvars
 
 3️- provider.tf
 Defines Terraform provider and version.
