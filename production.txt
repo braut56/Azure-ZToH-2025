@@ -1,0 +1,206 @@
+# Prerequisites
+Install the following tools:
+* Terraform
+* Azure CLI
+* kubectl
+* Azure subscription
+
+Login to Azure:
+```
+az login
+```
+Set subscription:
+```
+az account set --subscription <SUBSCRIPTION_ID>
+```
+
+
+
+# Project Structure
+aks-terraform/
+│
+├── backend.tf
+├── provider.tf
+├── variables.tf
+├── terraform.tfvars
+├── main.tf
+├── outputs.tf
+│
+├── modules/
+│   ├── resource-group/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   │
+│   ├── network/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   │
+│   └── aks/
+│       ├── main.tf
+│       ├── variables.tf
+│       └── outputs.tf
+
+# Backend Configuration
+backend.tf
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "terraform-state-rg"
+    storage_account_name = "tfstateprod123"
+    container_name       = "tfstate"
+    key                  = "aks-prod.tfstate"
+  }
+}
+# Provider Configuration
+provider.tf
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~>3.0"
+    }
+  }
+}
+
+provider "azurerm" {
+  features {}
+}
+# Root Module
+main.tf
+module "resource_group" {
+  source = "./modules/resource-group"
+
+  resource_group_name = var.resource_group_name
+  location            = var.location
+}
+
+module "network" {
+  source = "./modules/network"
+
+  resource_group_name = module.resource_group.rg_name
+  location            = var.location
+}
+
+module "aks" {
+  source = "./modules/aks"
+
+  resource_group_name = module.resource_group.rg_name
+  location            = var.location
+  subnet_id           = module.network.subnet_id
+  cluster_name        = var.cluster_name
+}
+# Variables
+variables.tf
+variable "resource_group_name" {}
+variable "location" {}
+variable "cluster_name" {}
+
+# Terraform Variables
+terraform.tfvars
+resource_group_name = "aks-prod-rg"
+location            = "East US"
+cluster_name        = "aks-production"
+
+# Resource Group Module
+modules/resource-group/main.tf
+
+resource "azurerm_resource_group" "rg" {
+  name     = var.resource_group_name
+  location = var.location
+}
+modules/resource-group/variables.tf
+variable "resource_group_name" {}
+variable "location" {}
+modules/resource-group/outputs.tf
+output "rg_name" {
+  value = azurerm_resource_group.rg.name
+}
+
+# Network Module
+modules/network/main.tf
+resource "azurerm_virtual_network" "vnet" {
+  name                = "aks-vnet"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  address_space       = ["10.0.0.0/16"]
+}
+
+resource "azurerm_subnet" "aks_subnet" {
+  name                 = "aks-subnet"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["10.0.1.0/24"]
+}
+modules/network/outputs.tf
+output "subnet_id" {
+  value = azurerm_subnet.aks_subnet.id
+}
+
+# AKS Module
+modules/aks/main.tf
+resource "azurerm_kubernetes_cluster" "aks" {
+  name                = var.cluster_name
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  dns_prefix          = "aksdns"
+
+  default_node_pool {
+    name                = "system"
+    node_count          = 2
+    vm_size             = "Standard_DS2_v2"
+    vnet_subnet_id      = var.subnet_id
+    enable_auto_scaling = true
+    min_count           = 1
+    max_count           = 5
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  network_profile {
+    network_plugin = "azure"
+  }
+}
+ 
+# Outputs
+outputs.tf
+
+output "cluster_name" {
+  value = module.aks.cluster_name
+}
+
+# Deployment Steps
+Initialize Terraform:
+terraform init
+Validate configuration:
+terraform validate
+Preview changes:
+terraform plan
+Deploy infrastructure:
+terraform apply
+
+
+---
+
+# Connect to AKS Cluster
+Retrieve cluster credentials:
+
+
+az aks get-credentials \
+--resource-group aks-prod-rg \
+--name aks-production
+
+
+Verify nodes:
+kubectl get nodes
+
+------- Terraform deploys--------
+
+* Resource Group
+* Virtual Network
+* Subnet
+* AKS Cluster
+* Node Pool
+* Autoscaling
