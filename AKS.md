@@ -2,14 +2,14 @@
 
 Terraform
 Azure CLI
-
 Azure account on Microsoft Azure
 
 Login:
 az login
 Select subscription:
-
 az account set --subscription "SUBSCRIPTION_ID"
+
+
 2- Project Folder Structure
 Create a Terraform project:
 aks-terraform/
